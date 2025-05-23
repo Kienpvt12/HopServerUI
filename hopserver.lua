@@ -16,12 +16,13 @@ screenGui.Parent = playerGui
 -- Tạo Frame chính
 local frame = Instance.new("Frame")
 frame.Size = UDim2.new(0, 300, 0, 150)
+frame.AnchorPoint = Vector2.new(0, 0)
+-- Đặt frame ở giữa màn hình (trừ nửa size để frame thực sự giữa)
 frame.Position = UDim2.new(0.5, -150, 0.5, -75)
 frame.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
 frame.BorderSizePixel = 0
 frame.Active = true
 frame.Parent = screenGui
-frame.AnchorPoint = Vector2.new(0.5, 0.5)
 
 -- Tạo thanh title
 local title = Instance.new("TextLabel")
@@ -120,29 +121,28 @@ hopButton.MouseButton1Click:Connect(function()
             end
         end)
         coroutine.resume(hopCoroutine)
-    else
-        -- Tắt hop thì coroutine sẽ dừng do hopEnabled = false
     end
 end)
 
-
+-- Kéo thả Frame thủ công
 -- Kéo thả Frame thủ công
 local dragging = false
-local dragInput, mousePos, framePos
+local dragStartPos -- vị trí chuột lúc bắt đầu kéo (Vector2)
+local frameStartPos -- vị trí frame lúc bắt đầu kéo (UDim2)
 
-local function update(input)
-    local delta = input.Position - mousePos
-    frame.Position = UDim2.new(
-        0, framePos.X + delta.X,
-        0, framePos.Y + delta.Y
-    )
+local function clampPosition(pos)
+    local screenSize = workspace.CurrentCamera.ViewportSize
+    local x = math.clamp(pos.X, 0, screenSize.X - frame.AbsoluteSize.X)
+    local y = math.clamp(pos.Y, 0, screenSize.Y - frame.AbsoluteSize.Y)
+    return Vector2.new(x, y)
 end
 
 frame.InputBegan:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.MouseButton1 then
         dragging = true
-        mousePos = input.Position
-        framePos = frame.Position
+        dragStartPos = input.Position
+        frameStartPos = frame.Position
+
         input.Changed:Connect(function()
             if input.UserInputState == Enum.UserInputState.End then
                 dragging = false
@@ -151,14 +151,23 @@ frame.InputBegan:Connect(function(input)
     end
 end)
 
-frame.InputChanged:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseMovement then
-        dragInput = input
+UserInputService.InputChanged:Connect(function(input)
+    if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
+        local delta = input.Position - dragStartPos
+        local newPos = UDim2.new(
+            0,
+            frameStartPos.X.Offset + delta.X,
+            0,
+            frameStartPos.Y.Offset + delta.Y
+        )
+        local clampedPos = clampPosition(Vector2.new(newPos.X.Offset, newPos.Y.Offset))
+        frame.Position = UDim2.new(0, clampedPos.X, 0, clampedPos.Y)
     end
 end)
 
-UserInputService.InputChanged:Connect(function(input)
-    if dragging and input == dragInput then
+
+frame.InputChanged:Connect(function(input)
+    if input == dragInput then
         update(input)
     end
 end)
